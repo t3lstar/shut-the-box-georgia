@@ -11,6 +11,8 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Server startup logging - this is an intentional server-side log
 app.listen(port, () => {
+    // eslint-disable-next-line no-console
     console.log(`Shut the Box game server running at http://localhost:${port}`);
 }); 

@@ -48,10 +48,7 @@ class ShutTheBox {
     setupEventListeners() {
         this.rollButton.addEventListener('click', () => this.rollDice());
         this.newGameButton.addEventListener('click', () => this.initializeGame());
-        this.undoButton.addEventListener('click', () => {
-            console.log('Undo button clicked');
-            this.undoLastMove();
-        });
+        this.undoButton.addEventListener('click', () => this.undoLastMove());
         
         this.tilesContainer.addEventListener('click', (e) => {
             if (e.target.classList.contains('tile') && !e.target.classList.contains('shut')) {
@@ -79,10 +76,6 @@ class ShutTheBox {
         // Disable the roll button during animation
         this.rollButton.disabled = true;
         
-        // Add rolling class to both dice
-        this.dice1.classList.add('rolling');
-        this.dice2.classList.add('rolling');
-        
         // Generate random rolls
         const roll1 = Math.floor(Math.random() * 6) + 1;
         const roll2 = Math.floor(Math.random() * 6) + 1;
@@ -90,13 +83,21 @@ class ShutTheBox {
         // Store the current roll
         this.currentDiceRoll = { roll1, roll2, sum: roll1 + roll2 };
         
+        // Add rolling class to both dice
+        this.dice1.classList.add('rolling');
+        this.dice2.classList.add('rolling');
+        
+        // Update all faces with random numbers during animation
+        this.updateAllDiceFaces(this.dice1);
+        this.updateAllDiceFaces(this.dice2);
+        
         // Wait for animation to complete before showing final values
         setTimeout(() => {
             // Remove rolling class
             this.dice1.classList.remove('rolling');
             this.dice2.classList.remove('rolling');
             
-            // Update dice display
+            // Update dice display with final values
             this.updateDiceDisplay(roll1, roll2);
             
             // Reset selected tiles when rolling new dice
@@ -105,7 +106,36 @@ class ShutTheBox {
             this.moveHistory = [];
             this.undoButton.disabled = true;
             this.updateSelectedTiles();
-        }, 1000); // Match this with the animation duration
+            
+            // Check if any moves are possible with the new roll
+            if (!this.checkForPossibleMoves()) {
+                alert('Game Over! No possible moves with the current roll.');
+                this.rollButton.disabled = true;
+            }
+        }, 1500); // Match this with the animation duration
+    }
+    
+    updateAllDiceFaces(diceElement) {
+        const faces = diceElement.querySelectorAll('.dice-face');
+        faces.forEach(face => {
+            const randomValue = Math.floor(Math.random() * 6) + 1;
+            this.updateDiceFacePattern(face, randomValue);
+        });
+    }
+    
+    updateDiceFacePattern(faceElement, value) {
+        const dotPositions = {
+            1: [4],
+            2: [0, 8],
+            3: [0, 4, 8],
+            4: [0, 2, 6, 8],
+            5: [0, 2, 4, 6, 8],
+            6: [0, 2, 3, 5, 6, 8]
+        };
+        
+        faceElement.innerHTML = dotPositions[value].map(pos => 
+            `<div class="dot" style="grid-area: ${Math.floor(pos/3) + 1} / ${(pos%3) + 1}"></div>`
+        ).join('');
     }
     
     updateDiceDisplay(roll1, roll2) {
@@ -116,21 +146,10 @@ class ShutTheBox {
     }
     
     updateDiceFace(diceElement, value) {
-        const dotPositions = {
-            1: [4],
-            2: [0, 8],
-            3: [0, 4, 8],
-            4: [0, 2, 6, 8],
-            5: [0, 2, 4, 6, 8],
-            6: [0, 2, 3, 5, 6, 8]
-        };
-        
         // Update all faces with the same pattern
         const faces = diceElement.querySelectorAll('.dice-face');
         faces.forEach(face => {
-            face.innerHTML = dotPositions[value].map(pos => 
-                `<div class="dot" style="grid-area: ${Math.floor(pos/3) + 1} / ${(pos%3) + 1}"></div>`
-            ).join('');
+            this.updateDiceFacePattern(face, value);
         });
         
         // Rotate dice to show the correct face
@@ -176,15 +195,11 @@ class ShutTheBox {
     }
     
     undoLastMove() {
-        console.log("Undo last move called, history length:", this.moveHistory.length);
-        
         if (this.moveHistory.length === 0) {
-            console.log("No moves to undo");
             return;
         }
         
         const lastValue = this.moveHistory.pop();
-        console.log("Undoing tile:", lastValue);
         
         this.selectedTiles.delete(lastValue);
         this.selectedSum -= lastValue;
@@ -212,12 +227,6 @@ class ShutTheBox {
     }
     
     shutSelectedTiles() {
-        // Save the move to history before shutting tiles
-        const shutMove = {
-            tiles: Array.from(this.selectedTiles),
-            diceRoll: this.currentDiceRoll
-        };
-        
         // Shut all selected tiles
         this.selectedTiles.forEach(value => {
             this.shutTiles.add(value);
@@ -247,9 +256,8 @@ class ShutTheBox {
     }
     
     getDiceSum() {
-        const dice1Dots = this.dice1.querySelectorAll('.dot').length;
-        const dice2Dots = this.dice2.querySelectorAll('.dot').length;
-        return dice1Dots + dice2Dots;
+        if (!this.currentDiceRoll) return 0;
+        return this.currentDiceRoll.sum;
     }
     
     updateScore() {
@@ -257,6 +265,23 @@ class ShutTheBox {
             return this.shutTiles.has(num) ? sum : sum + num;
         }, 0);
         this.scoreElement.textContent = score;
+    }
+    
+    checkForPossibleMoves() {
+        const diceSum = this.getDiceSum();
+        const availableTiles = this.tiles.filter(num => !this.shutTiles.has(num));
+        
+        // Check all possible combinations of tiles
+        for (let i = 0; i < availableTiles.length; i++) {
+            let sum = availableTiles[i];
+            if (sum === diceSum) return true;
+            
+            for (let j = i + 1; j < availableTiles.length; j++) {
+                sum = availableTiles[i] + availableTiles[j];
+                if (sum === diceSum) return true;
+            }
+        }
+        return false;
     }
 }
 
